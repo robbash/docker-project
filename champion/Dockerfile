@@ -40,6 +40,7 @@ RUN apk --no-cache add \
   php7-pecl-mcrypt \
   php7-pecl-redis \
   php7-pecl-xdebug \
+  shadow \
   ssmtp \
   supervisor \
   tidyhtml
@@ -92,6 +93,21 @@ RUN mkdir -p /var/www/.ssh && \
     chown -R nobody.nobody /var/www/.ssh && \
     chmod 600 /var/www/.ssh/known_hosts
 
+### NODE ###
+
+# node 12.20
+#RUN apk add \
+#    --no-cache \
+#    nodejs \
+#    yarn
+
+# node 10.19
+RUN apk add \
+    --no-cache \
+    --repository http://dl-cdn.alpinelinux.org/alpine/v3.10/main/ \
+    nodejs=10.19.0-r0 \
+    yarn
+
 ### BRING IT UP ###
 
 COPY config/vhost.conf    /etc/apache2/conf.d/httpd-vhosts.conf
@@ -106,13 +122,19 @@ COPY scripts/sspak.phar   /usr/local/bin/sspak
 # Configure supervisord
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN mkdir /var/www/html && \
+# We need to create and set a home dir for `nobody` so the yarn cache folder can be set
+RUN mkdir /home/nobody && mkdir /var/www/html && \
+  chown -R nobody.nobody /home/nobody && \
   chown -R nobody.nobody /var/www/html && \
   chown -R nobody.nobody /run && \
-  chmod +x /usr/local/bin/sspak
+  chmod +x /usr/local/bin/sspak && \
+  usermod -d /home/nobody nobody
 
 # Switch to use a non-root user from here on
+
 USER nobody
+
+RUN yarn config set cache-folder /tmp/.yarn-cache
 
 # Add application
 WORKDIR /var/www/html
